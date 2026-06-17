@@ -133,19 +133,8 @@ runs:
         # Copy chart to build directory
         cp -r "$CHART_PATH" "$BUILD_DIR/chart"
         
-        # Build images list
+        # Get images list for later
         IMAGES="${{ inputs.images }}"
-        IMAGES_YAML=""
-        if [ -n "$IMAGES" ]; then
-          IMAGES_YAML="\n    images:"
-          IFS=',' read -ra IMG_ARRAY <<< "$IMAGES"
-          for img in "${IMG_ARRAY[@]}"; do
-            trimmed=$(echo "$img" | xargs)
-            if [ -n "$trimmed" ]; then
-              IMAGES_YAML="${IMAGES_YAML}\n      - ${trimmed}"
-            fi
-          done
-        fi
         
         # Handle values file
         VALUES_FILE="${{ inputs.values_file }}"
@@ -173,8 +162,22 @@ components:
       - name: ${CHART_NAME}
         version: ${CHART_VERSION}
         namespace: ${{ inputs.namespace }}
-        localPath: ./chart${VALUES_YAML}${IMAGES_YAML}
+        localPath: ./chart${VALUES_YAML}
 EOF
+        
+        # Append images at component level if specified
+        if [ -n "$IMAGES" ]; then
+          cat >> "$BUILD_DIR/zarf.yaml" << EOF
+    images:
+EOF
+          IFS=',' read -ra IMG_ARRAY <<< "$IMAGES"
+          for img in "${IMG_ARRAY[@]}"; do
+            trimmed=$(echo "$img" | xargs)
+            if [ -n "$trimmed" ]; then
+              echo "      - ${trimmed}" >> "$BUILD_DIR/zarf.yaml"
+            fi
+          done
+        fi
         
         echo "Generated zarf.yaml:"
         cat "$BUILD_DIR/zarf.yaml"

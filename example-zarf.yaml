@@ -1,5 +1,6 @@
 # Example zarf.yaml configuration
-# Copy this file to your project and customize it for your Helm chart
+# NOTE: This action automatically generates zarf.yaml from your Chart.yaml
+# You do NOT need to create this file manually - it's shown here for reference only
 
 kind: ZarfPackageConfig
 metadata:

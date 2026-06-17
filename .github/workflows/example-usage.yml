@@ -59,7 +59,7 @@ jobs:
       - name: Package Helm Chart
         id: package
         uses: ./  # Use the action from this repo (for testing)
-        # For production use: uses:  the-dave-ops /zarf-package-helm-chart@v1
+        # For production use: uses: the-dave-ops/zarf-package-helm-chart@v1
         with:
           chart_path: .  # Path to your Helm chart (contains Chart.yaml)
           namespace: default  # Kubernetes namespace for deployment
@@ -93,7 +93,7 @@ jobs:
       - name: Package Helm Chart (${{ matrix.arch }})
         id: package
         uses: ./  # Use the action from this repo (for testing)
-        # For production use: uses:  the-dave-ops /zarf-package-helm-chart@v1
+        # For production use: uses: the-dave-ops/zarf-package-helm-chart@v1
         with:
           chart_path: .  # Path to your Helm chart
           namespace: default

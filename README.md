@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Package Helm Chart
-        uses:  the-dave-ops /zarf-package-helm-chart@v1
+        uses: the-dave-ops/zarf-package-helm-chart@v1
         with:
           chart_path: .           # Path to your Helm chart
           architecture: amd64
@@ -153,7 +153,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Package Helm Chart with Zarf
-        uses:  the-dave-ops /zarf-package-helm-chart@v1
+        uses: the-dave-ops/zarf-package-helm-chart@v1
         with:
           # Required settings
           chart_path: .                    # Path to Helm chart directory
@@ -164,8 +164,8 @@ jobs:
           images: "nginx:1.25"             # Comma-separated container images
           output_dir: build                # Where to put .tar.zst files
           zarf_version: v0.52.1            # Pin Zarf version (default: latest)
-          upload_artifact: true              # Upload as artifact? (default: true)
-          artifact_name: zarf-package        # Artifact name
+          upload_artifact: true             # Upload as artifact? (default: true)
+          artifact_name: zarf-package         # Artifact name
           artifact_retention_days: 30      # How long to keep artifacts
 
       - name: Show Package Info
@@ -235,7 +235,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses:  the-dave-ops /zarf-package-helm-chart@v1
+      - uses: the-dave-ops/zarf-package-helm-chart@v1
 ```
 
 ### Example 2: Multi-Architecture Build Matrix
@@ -252,7 +252,7 @@ jobs:
         arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
-      - uses:  the-dave-ops /zarf-package-helm-chart@v1
+      - uses: the-dave-ops/zarf-package-helm-chart@v1
         with:
           architecture: ${{ matrix.arch }}
           artifact_name: package-${{ matrix.arch }}
@@ -274,7 +274,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Package
-        uses:  the-dave-ops /zarf-package-helm-chart@v1
+        uses: the-dave-ops/zarf-package-helm-chart@v1
         with:
           architecture: both
           output_dir: dist
@@ -298,7 +298,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Package
-        uses:  the-dave-ops /zarf-package-helm-chart@v1
+        uses: the-dave-ops/zarf-package-helm-chart@v1
         with:
           chart_path: ./chart
           namespace: production
@@ -407,7 +407,7 @@ jobs:
 
 - [Zarf Documentation](https://zarf.dev/docs/)
 - [Zarf Troubleshooting](https://zarf.dev/docs/troubleshooting/)
-- [Open an Issue](https://github.com/ the-dave-ops /zarf-package-helm-chart/issues)
+- [Open an Issue](https://github.com/the-dave-ops/zarf-package-helm-chart/issues)
 
 ---
 
