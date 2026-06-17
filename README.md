@@ -9,7 +9,7 @@ A GitHub Action to package Helm charts into Zarf packages for air-gapped deploym
 
 - [Quick Start](#quick-start) - Get running in 5 minutes
 - [How It Works](#how-it-works) - Understand the flow
-- [Step-by-Step Guide](#step-by-step-guide) - Detailed setup instructions
+- [Step-by-Step Guide](#step-by-step-guide) - Detailed setup instructions (no zarf.yaml needed!)
 - [Inputs & Outputs](#inputs--outputs) - Reference documentation
 - [Examples](#examples) - Real-world usage patterns
 - [Troubleshooting](#troubleshooting) - Common issues and solutions
@@ -25,8 +25,9 @@ name: Package Helm Chart
 on:
   push:
     paths:
-      - 'zarf.yaml'
-      - 'chart/**'
+      - 'Chart.yaml'
+      - 'values.yaml'
+      - 'templates/**'
 
 jobs:
   package:
@@ -35,13 +36,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Package Helm Chart
-        uses: your-username/zarf-package-helm-chart-action@v1
+        uses:  the-dave-ops /zarf-package-helm-chart@v1
         with:
-          chart_path: .
+          chart_path: .           # Path to your Helm chart
           architecture: amd64
+          images: "nginx:1.25"    # Container images to include
 ```
 
-**Required file in your repo**: `zarf.yaml` (see [Step 2](#step-2-create-zarfyaml) for example)
+**Only required**: Your Helm chart with `Chart.yaml` - the action generates `zarf.yaml` automatically!
 
 ---
 
@@ -50,14 +52,21 @@ jobs:
 ```
 Your Repository                    GitHub Action
 ┌─────────────────┐               ┌─────────────────┐
-│  zarf.yaml      │──────────────▶│  Install Zarf   │
-│  (config)       │               │     CLI         │
-├─────────────────┤               └────────┬────────┘
-│  chart/         │                        │
-│  ├── Chart.yaml │                        ▼
-│  ├── values.yaml│               ┌─────────────────┐
-│  └── templates/ │               │ Package Chart   │
-└─────────────────┘               │ for Architecture│
+│  chart/         │──────────────▶│  Install Zarf   │
+│  ├── Chart.yaml │               │     CLI         │
+│  ├── values.yaml│               └────────┬────────┘
+│  └── templates/ │                        │
+└─────────────────┘                        ▼
+                                ┌─────────────────┐
+                                │  Generate       │
+                                │  zarf.yaml      │
+                                └────────┬────────┘
+                                         │
+                                         ▼
+                                ┌─────────────────┐
+                                │ Package Chart   │
+                                │ + Images        │
+                                │ for Architecture│
                                 └────────┬────────┘
                                          │
                                          ▼
@@ -68,10 +77,11 @@ Your Repository                    GitHub Action
 ```
 
 **What this action does:**
-1. Installs the Zarf CLI tool
-2. Reads your `zarf.yaml` configuration
-3. Packages your Helm chart for the specified architecture
-4. Uploads the resulting `.tar.zst` file as a GitHub artifact
+1. Installs the Zarf CLI tool and yq for YAML parsing
+2. Reads your Helm chart's `Chart.yaml` to extract metadata
+3. Generates a `zarf.yaml` file automatically with your chart configuration
+4. Packages your Helm chart and container images for the specified architecture
+5. Uploads the resulting `.tar.zst` file as a GitHub artifact
 
 ---
 
@@ -79,72 +89,25 @@ Your Repository                    GitHub Action
 
 ### Step 1: Prepare Your Repository
 
-Your project should have this structure:
+Your project only needs the Helm chart:
 
 ```
 my-project/
 ├── .github/
 │   └── workflows/          # (we'll create this)
 │       └── package.yml
-├── chart/                  # Your Helm chart
-│   ├── Chart.yaml
-│   ├── values.yaml
-│   └── templates/
-│       └── ...
-├── zarf.yaml               # (we'll create this)
+├── Chart.yaml              # Your Helm chart metadata
+├── values.yaml             # Default values
+├── templates/              # Helm templates
+│   └── ...
 └── README.md
 ```
 
 **Prerequisites:**
-- A Helm chart (local or remote)
+- A Helm chart with `Chart.yaml`
 - GitHub repository
 
-### Step 2: Create `zarf.yaml`
-
-Create a `zarf.yaml` file in your repository root. This tells Zarf how to package your chart:
-
-**Option A: Local Helm Chart** (most common)
-```yaml
-kind: ZarfPackageConfig
-metadata:
-  name: my-application
-  description: My application for air-gapped deployment
-  version: 1.0.0
-
-components:
-  - name: helm-chart
-    required: true
-    charts:
-      - name: my-chart
-        version: 1.0.0
-        namespace: default
-        localPath: ./chart          # Path to your local chart
-        valuesFiles:
-          - values.yaml             # Override values file
-```
-
-**Option B: Remote Chart from OCI Registry**
-```yaml
-kind: ZarfPackageConfig
-metadata:
-  name: my-application
-  version: 1.0.0
-
-components:
-  - name: helm-chart
-    required: true
-    charts:
-      - name: remote-chart
-        version: 2.5.0
-        namespace: production
-        url: oci://ghcr.io/company/charts
-        valuesFiles:
-          - values.yaml
-```
-
-> **Tip**: See [`example-zarf.yaml`](example-zarf.yaml) in this repo for more examples (Git repos, Helm repositories, etc.)
-
-### Step 3: Create GitHub Workflow
+### Step 2: Create GitHub Workflow
 
 Create `.github/workflows/package.yml` in your repository:
 
@@ -152,13 +115,12 @@ Create `.github/workflows/package.yml` in your repository:
 name: Package Helm Chart
 
 on:
-  # Trigger on changes to relevant files
+  # Trigger on changes to chart files
   push:
     paths:
-      - 'zarf.yaml'
       - 'Chart.yaml'
       - 'values.yaml'
-      - 'chart/**'
+      - 'templates/**'
     branches:
       - main
       - master
@@ -166,8 +128,9 @@ on:
   # Trigger on pull requests
   pull_request:
     paths:
-      - 'zarf.yaml'
-      - 'chart/**'
+      - 'Chart.yaml'
+      - 'values.yaml'
+      - 'templates/**'
 
   # Allow manual trigger
   workflow_dispatch:
@@ -190,17 +153,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Package Helm Chart with Zarf
-        uses: your-username/zarf-package-helm-chart-action@v1
+        uses:  the-dave-ops /zarf-package-helm-chart@v1
         with:
           # Required settings
-          chart_path: .                    # Directory containing zarf.yaml
-          architecture: amd64              # or: arm64, both
+          chart_path: .                    # Path to Helm chart directory
+          architecture: amd64                # or: arm64, both
 
           # Optional settings
+          namespace: default               # Kubernetes namespace
+          images: "nginx:1.25"             # Comma-separated container images
           output_dir: build                # Where to put .tar.zst files
           zarf_version: v0.52.1            # Pin Zarf version (default: latest)
-          upload_artifact: true            # Upload as artifact? (default: true)
-          artifact_name: zarf-package      # Artifact name
+          upload_artifact: true              # Upload as artifact? (default: true)
+          artifact_name: zarf-package        # Artifact name
           artifact_retention_days: 30      # How long to keep artifacts
 
       - name: Show Package Info
@@ -209,14 +174,14 @@ jobs:
           ls -lh build/
 ```
 
-### Step 4: Run the Workflow
+### Step 3: Run the Workflow
 
 1. Push the workflow file to your repository
 2. Go to **Actions** tab in your GitHub repo
 3. Click on "Package Helm Chart" workflow
 4. Click **"Run workflow"** (or wait for automatic trigger on push)
 
-### Step 5: Download the Package
+### Step 4: Download the Package
 
 After the workflow completes:
 1. Go to the workflow run page
@@ -232,9 +197,12 @@ After the workflow completes:
 
 | Input | Description | Required | Default |
 |-------|-------------|:--------:|---------|
-| `chart_path` | Path to directory containing `zarf.yaml` | No | `.` |
-| `package_name` | Override package name from zarf.yaml | No | *(from zarf.yaml)* |
-| `package_version` | Override version from zarf.yaml | No | *(from zarf.yaml)* |
+| `chart_path` | Path to Helm chart directory (contains `Chart.yaml`) | **Yes** | - |
+| `namespace` | Kubernetes namespace for chart deployment | No | `default` |
+| `images` | Comma-separated container images to include (e.g., "nginx:1.25,postgres:15") | No | *(empty)* |
+| `values_file` | Path to Helm values file (relative to chart_path) | No | *(empty)* |
+| `package_name` | Override Zarf package name (defaults to chart name) | No | *(from Chart.yaml)* |
+| `package_version` | Override Zarf package version (defaults to chart version) | No | *(from Chart.yaml)* |
 | `architecture` | Target architecture: `amd64`, `arm64`, or `both` | No | `amd64` |
 | `output_dir` | Output directory for `.tar.zst` files | No | `build` |
 | `zarf_version` | Zarf CLI version to use | No | `latest` |
@@ -267,7 +235,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: your-username/zarf-package-helm-chart-action@v1
+      - uses:  the-dave-ops /zarf-package-helm-chart@v1
 ```
 
 ### Example 2: Multi-Architecture Build Matrix
@@ -284,7 +252,7 @@ jobs:
         arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
-      - uses: your-username/zarf-package-helm-chart-action@v1
+      - uses:  the-dave-ops /zarf-package-helm-chart@v1
         with:
           architecture: ${{ matrix.arch }}
           artifact_name: package-${{ matrix.arch }}
@@ -306,7 +274,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Package
-        uses: your-username/zarf-package-helm-chart-action@v1
+        uses:  the-dave-ops /zarf-package-helm-chart@v1
         with:
           architecture: both
           output_dir: dist
@@ -317,10 +285,10 @@ jobs:
           files: dist/*.tar.zst
 ```
 
-### Example 4: Package with Custom Values
+### Example 4: Package with Container Images
 
 ```yaml
-name: Package for Production
+name: Package with Images
 on: [workflow_dispatch]
 
 jobs:
@@ -329,45 +297,89 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Create production values file
-      - name: Prepare Production Values
-        run: |
-          cat > prod-values.yaml << 'EOF'
-          replicaCount: 3
-          resources:
-            limits:
-              cpu: 1000m
-              memory: 1Gi
-          EOF
-
       - name: Package
-        uses: your-username/zarf-package-helm-chart-action@v1
+        uses:  the-dave-ops /zarf-package-helm-chart@v1
         with:
-          chart_path: .
+          chart_path: ./chart
+          namespace: production
+          images: "nginx:1.25,postgres:15,myapp:v1.2.3"
+          values_file: values.yaml
           output_dir: dist
           artifact_name: zarf-package-prod
+```
+
+### Example 5: Create Release with Download Links
+
+This example creates a GitHub release with the Zarf package attached and includes download instructions in the release notes:
+
+```yaml
+name: Release Zarf Package
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  package-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package Helm Chart
+        id: package
+        uses: the-dave-ops/zarf-package-helm-chart@v1
+        with:
+          chart_path: .
+          architecture: amd64
+          images: "nginx:1.25"
+          output_dir: dist
+
+      - name: Create Release with Package
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*.tar.zst
+          body: |
+            ## Zarf Package
+
+            This release includes a Zarf package for air-gapped deployment.
+
+            ### Download
+
+            Download the package from the assets below or directly:
+            ```bash
+            # Download using gh CLI
+            gh release download ${{ github.ref_name }} --pattern "*.tar.zst"
+            ```
+
+            ### Deploy
+
+            To deploy this package in an air-gapped environment:
+            ```bash
+            # Load the package into Zarf
+            zarf tools archiver decompress zarf-package-*.tar.zst
+
+            # Or deploy directly
+            zarf package deploy zarf-package-*.tar.zst
+            ```
+
+            **Package:** ${{ steps.package.outputs.package_filename }}
+            **Architecture:** ${{ steps.package.outputs.architecture }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ---
 
 ## Troubleshooting
 
-### Error: "zarf.yaml not found"
+### Error: "Chart.yaml not found"
 
-**Cause**: The action can't find your zarf.yaml file.
+**Cause**: The action can't find your Helm chart.
 
 **Solution**: 
-- Ensure `zarf.yaml` is in the directory specified by `chart_path`
-- Check file is committed to git: `git add zarf.yaml && git commit -m "Add zarf config"`
-
-### Error: "Chart not found"
-
-**Cause**: Zarf can't find your Helm chart.
-
-**Solution**:
-- Verify `localPath` in `zarf.yaml` points to correct directory
-- Ensure the chart directory contains a valid `Chart.yaml`
-- For remote charts, check the URL is accessible
+- Ensure `chart_path` points to a directory containing `Chart.yaml`
+- Check the chart is committed to git
+- Verify the path is correct relative to repository root
 
 ### Error: "Package creation failed"
 
@@ -395,7 +407,7 @@ jobs:
 
 - [Zarf Documentation](https://zarf.dev/docs/)
 - [Zarf Troubleshooting](https://zarf.dev/docs/troubleshooting/)
-- [Open an Issue](https://github.com/your-username/zarf-package-helm-chart-action/issues)
+- [Open an Issue](https://github.com/ the-dave-ops /zarf-package-helm-chart/issues)
 
 ---
 
@@ -405,7 +417,6 @@ jobs:
 - [Zarf GitHub Repository](https://github.com/defenseunicorns/zarf)
 - [Helm Charts in Zarf](https://zarf.dev/docs/ref/components/#helm-charts)
 - [Zarf Setup Action](https://github.com/zarf-dev/setup-zarf)
-- [example-zarf.yaml](example-zarf.yaml) - Full configuration examples
 - [.github/workflows/example-usage.yml](.github/workflows/example-usage.yml) - Complete workflow example
 
 ## License

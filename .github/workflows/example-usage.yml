@@ -1,16 +1,17 @@
 # Example workflow demonstrating how to use the Zarf Package Helm Chart Action
 # Copy this workflow to your project's .github/workflows/ directory and customize
+# Your repo only needs the Helm chart - the action generates zarf.yaml automatically!
 
 name: Package Helm Chart with Zarf
 
 on:
-  # Run when zarf.yaml or chart files change
+  # Run when chart files change
   push:
     paths:
-      - 'zarf.yaml'
       - 'Chart.yaml'
       - 'values.yaml'
       - 'chart/**'
+      - 'templates/**'
     branches:
       - main
       - master
@@ -18,10 +19,10 @@ on:
   # Run on pull requests that modify chart files
   pull_request:
     paths:
-      - 'zarf.yaml'
       - 'Chart.yaml'
       - 'values.yaml'
       - 'chart/**'
+      - 'templates/**'
 
   # Manual trigger with options
   workflow_dispatch:
@@ -58,9 +59,12 @@ jobs:
       - name: Package Helm Chart
         id: package
         uses: ./  # Use the action from this repo (for testing)
-        # For production use: uses: your-username/zarf-package-helm-chart@v1
+        # For production use: uses:  the-dave-ops /zarf-package-helm-chart@v1
         with:
-          chart_path: .
+          chart_path: .  # Path to your Helm chart (contains Chart.yaml)
+          namespace: default  # Kubernetes namespace for deployment
+          # Optional: specify images to include in the package
+          # images: "nginx:1.25,postgres:15,myapp:latest"
           architecture: ${{ github.event.inputs.architecture || 'amd64' }}
           output_dir: build
           zarf_version: ${{ github.event.inputs.zarf_version }}
@@ -89,9 +93,10 @@ jobs:
       - name: Package Helm Chart (${{ matrix.arch }})
         id: package
         uses: ./  # Use the action from this repo (for testing)
-        # For production use: uses: your-username/zarf-package-helm-chart@v1
+        # For production use: uses:  the-dave-ops /zarf-package-helm-chart@v1
         with:
-          chart_path: .
+          chart_path: .  # Path to your Helm chart
+          namespace: default
           architecture: ${{ matrix.arch }}
           output_dir: build-${{ matrix.arch }}
           zarf_version: ${{ github.event.inputs.zarf_version }}
