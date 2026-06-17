@@ -1,0 +1,105 @@
+# Example workflow demonstrating how to use the Zarf Package Helm Chart Action
+# Copy this workflow to your project's .github/workflows/ directory and customize
+
+name: Package Helm Chart with Zarf
+
+on:
+  # Run when zarf.yaml or chart files change
+  push:
+    paths:
+      - 'zarf.yaml'
+      - 'Chart.yaml'
+      - 'values.yaml'
+      - 'chart/**'
+    branches:
+      - main
+      - master
+
+  # Run on pull requests that modify chart files
+  pull_request:
+    paths:
+      - 'zarf.yaml'
+      - 'Chart.yaml'
+      - 'values.yaml'
+      - 'chart/**'
+
+  # Manual trigger with options
+  workflow_dispatch:
+    inputs:
+      architecture:
+        description: 'Target architecture'
+        required: true
+        default: 'amd64'
+        type: choice
+        options:
+          - amd64
+          - arm64
+          - both
+      zarf_version:
+        description: 'Zarf CLI version (leave empty for latest)'
+        required: false
+        default: ''
+      artifact_retention:
+        description: 'Artifact retention days'
+        required: true
+        default: '30'
+        type: number
+
+jobs:
+  # Single architecture build
+  package-single:
+    # Skip if building for both architectures
+    if: github.event.inputs.architecture != 'both' && github.event_name != 'workflow_dispatch' || github.event.inputs.architecture != 'both'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Package Helm Chart
+        id: package
+        uses: ./  # Use the action from this repo (for testing)
+        # For production use: uses: your-username/zarf-package-helm-chart@v1
+        with:
+          chart_path: .
+          architecture: ${{ github.event.inputs.architecture || 'amd64' }}
+          output_dir: build
+          zarf_version: ${{ github.event.inputs.zarf_version }}
+          upload_artifact: true
+          artifact_name: zarf-package
+          artifact_retention_days: ${{ github.event.inputs.artifact_retention || 30 }}
+
+      - name: Show Package Info
+        run: |
+          echo "Generated package: ${{ steps.package.outputs.package_filename }}"
+          echo "Package path: ${{ steps.package.outputs.package_path }}"
+          echo "Architecture: ${{ steps.package.outputs.architecture }}"
+
+  # Multi-architecture build matrix
+  package-matrix:
+    # Run when 'both' architectures are selected
+    if: github.event.inputs.architecture == 'both' || github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Package Helm Chart (${{ matrix.arch }})
+        id: package
+        uses: ./  # Use the action from this repo (for testing)
+        # For production use: uses: your-username/zarf-package-helm-chart@v1
+        with:
+          chart_path: .
+          architecture: ${{ matrix.arch }}
+          output_dir: build-${{ matrix.arch }}
+          zarf_version: ${{ github.event.inputs.zarf_version }}
+          upload_artifact: true
+          artifact_name: zarf-package-${{ matrix.arch }}
+          artifact_retention_days: ${{ github.event.inputs.artifact_retention || 30 }}
+
+      - name: Show Package Info
+        run: |
+          echo "Generated package: ${{ steps.package.outputs.package_filename }}"
+          echo "Package path: ${{ steps.package.outputs.package_path }}"

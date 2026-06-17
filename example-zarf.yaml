@@ -1,0 +1,62 @@
+# Example zarf.yaml configuration
+# Copy this file to your project and customize it for your Helm chart
+
+kind: ZarfPackageConfig
+metadata:
+  name: my-helm-chart
+  description: My Helm chart packaged for air-gapped deployment
+  version: 1.0.0
+  url: https://example.com
+  # Optional: add image annotations
+  # annotations:
+  #   example.com/my-annotation: "value"
+
+components:
+  - name: helm-chart
+    required: true
+    description: My Helm chart component
+    charts:
+      # Option 1: Local Helm chart
+      - name: my-local-chart
+        version: 1.0.0
+        namespace: default
+        localPath: ./chart
+        valuesFiles:
+          - values.yaml
+        # Optional: Set specific values
+        # variables:
+        #   - name: REPLICA_COUNT
+        #     description: "Number of replicas"
+        #     path: replicaCount
+        #     default: "3"
+
+      # Option 2: Helm chart from OCI registry
+      # - name: my-oci-chart
+      #   version: 1.0.0
+      #   namespace: default
+      #   url: oci://ghcr.io/my-org/my-chart
+      #   valuesFiles:
+      #     - values.yaml
+
+      # Option 3: Helm chart from Git repository
+      # - name: my-git-chart
+      #   version: 1.0.0
+      #   namespace: default
+      #   url: https://github.com/my-org/my-chart.git
+      #   gitPath: charts/my-chart
+      #   valuesFiles:
+      #     - values.yaml
+
+      # Option 4: Helm chart from Helm repository
+      # - name: my-repo-chart
+      #   version: 1.0.0
+      #   namespace: default
+      #   url: https://my-org.github.io/my-chart
+      #   repoName: my-chart
+      #   valuesFiles:
+      #     - values.yaml
+
+    # Optional: Include container images used by your chart
+    # images:
+    #   - ghcr.io/my-org/my-app:1.0.0
+    #   - registry.example.com/database:latest

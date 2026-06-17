@@ -1,0 +1,128 @@
+name: 'Zarf Package Helm Chart'
+description: 'A GitHub Action to package Helm charts into Zarf packages for air-gapped deployment'
+author: 'David Asulin'
+branding:
+  icon: 'package'
+  color: 'blue'
+
+inputs:
+  chart_path:
+    description: 'Path to the Helm chart or Zarf package directory'
+    required: false
+    default: '.'
+  package_name:
+    description: 'Name for the Zarf package (optional, uses name from zarf.yaml if not provided)'
+    required: false
+    default: ''
+  package_version:
+    description: 'Version for the Zarf package (optional, uses version from zarf.yaml if not provided)'
+    required: false
+    default: ''
+  architecture:
+    description: 'Target architecture (amd64, arm64, or both)'
+    required: false
+    default: 'amd64'
+  output_dir:
+    description: 'Output directory for the Zarf package'
+    required: false
+    default: 'build'
+  zarf_version:
+    description: 'Version of Zarf CLI to install (default: latest)'
+    required: false
+    default: ''
+  upload_artifact:
+    description: 'Whether to upload generated packages as artifacts'
+    required: false
+    default: 'true'
+  artifact_name:
+    description: 'Name for the uploaded artifact'
+    required: false
+    default: 'zarf-packages'
+  artifact_retention_days:
+    description: 'Number of days to retain artifacts'
+    required: false
+    default: '30'
+
+outputs:
+  package_path:
+    description: 'Path to the generated Zarf package'
+    value: ${{ steps.build.outputs.package_path }}
+  package_filename:
+    description: 'Filename of the generated Zarf package'
+    value: ${{ steps.build.outputs.package_filename }}
+  architecture:
+    description: 'Architecture of the generated package'
+    value: ${{ inputs.architecture }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate Architecture Input
+      shell: bash
+      run: |
+        if [[ "${{ inputs.architecture }}" != "amd64" && "${{ inputs.architecture }}" != "arm64" && "${{ inputs.architecture }}" != "both" ]]; then
+          echo "Error: architecture must be 'amd64', 'arm64', or 'both'"
+          exit 1
+        fi
+
+    - name: Install Zarf CLI
+      uses: zarf-dev/setup-zarf@v1
+      with:
+        version: ${{ inputs.zarf_version }}
+
+    - name: Build AMD64 Package
+      id: build-amd64
+      if: inputs.architecture == 'amd64' || inputs.architecture == 'both'
+      shell: bash
+      run: |
+        echo "Building Zarf package for AMD64..."
+        zarf package create \
+          -o "${{ inputs.output_dir }}" \
+          -a amd64 \
+          "${{ inputs.chart_path }}" \
+          --confirm
+        # Find the generated package file
+        package_file=$(ls -1 ${{ inputs.output_dir }}/zarf-package-*.tar.zst 2>/dev/null | head -n 1)
+        if [ -n "$package_file" ]; then
+          echo "package_path=${{ inputs.output_dir }}/$(basename $package_file)" >> $GITHUB_OUTPUT
+          echo "package_filename=$(basename $package_file)" >> $GITHUB_OUTPUT
+        fi
+        echo "Generated AMD64 packages:"
+        ls -lh ${{ inputs.output_dir }}/zarf-package-*-amd64-*.tar.zst 2>/dev/null || echo "No AMD64 packages found"
+
+    - name: Build ARM64 Package
+      id: build-arm64
+      if: inputs.architecture == 'arm64' || inputs.architecture == 'both'
+      shell: bash
+      run: |
+        echo "Building Zarf package for ARM64..."
+        zarf package create \
+          -o "${{ inputs.output_dir }}" \
+          -a arm64 \
+          "${{ inputs.chart_path }}" \
+          --confirm
+        echo "Generated ARM64 packages:"
+        ls -lh ${{ inputs.output_dir }}/zarf-package-*-arm64-*.tar.zst 2>/dev/null || echo "No ARM64 packages found"
+
+    - name: Set Output
+      id: build
+      shell: bash
+      run: |
+        # Determine the primary package path
+        if [ -n "${{ steps.build-amd64.outputs.package_path }}" ]; then
+          echo "package_path=${{ steps.build-amd64.outputs.package_path }}" >> $GITHUB_OUTPUT
+          echo "package_filename=${{ steps.build-amd64.outputs.package_filename }}" >> $GITHUB_OUTPUT
+        elif [ -n "${{ steps.build-arm64.outputs.package_path }}" ]; then
+          echo "package_path=${{ steps.build-arm64.outputs.package_path }}" >> $GITHUB_OUTPUT
+          echo "package_filename=${{ steps.build-arm64.outputs.package_filename }}" >> $GITHUB_OUTPUT
+        fi
+        echo "All generated packages:"
+        ls -lh ${{ inputs.output_dir }}/zarf-package-*.tar.zst 2>/dev/null || echo "No packages found"
+
+    - name: Upload Zarf Package Artifacts
+      if: inputs.upload_artifact == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact_name }}
+        path: ${{ inputs.output_dir }}/zarf-package-*.tar.zst
+        retention-days: ${{ inputs.artifact_retention_days }}

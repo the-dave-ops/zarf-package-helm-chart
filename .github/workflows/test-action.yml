@@ -1,0 +1,50 @@
+# Test workflow for the Zarf Package Helm Chart Action
+# This workflow runs when changes are pushed to validate the action works
+
+name: Test Action
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'action.yml'
+      - '.github/workflows/test-action.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'action.yml'
+      - '.github/workflows/test-action.yml'
+  workflow_dispatch:
+
+jobs:
+  # Test that the action.yml syntax is valid
+  validate-action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate action.yml
+        run: |
+          echo "Validating action.yml structure..."
+          # Check required fields
+          if ! grep -q "^name:" action.yml; then
+            echo "Error: action.yml missing 'name' field"
+            exit 1
+          fi
+          if ! grep -q "^description:" action.yml; then
+            echo "Error: action.yml missing 'description' field"
+            exit 1
+          fi
+          if ! grep -q "^runs:" action.yml; then
+            echo "Error: action.yml missing 'runs' field"
+            exit 1
+          fi
+          echo "✓ action.yml validation passed"
+
+      - name: Check YAML syntax
+        run: |
+          if command -v yq &> /dev/null; then
+            yq eval action.yml > /dev/null && echo "✓ YAML syntax is valid"
+          else
+            echo "Note: yq not installed, skipping YAML syntax check"
+          fi
