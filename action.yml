@@ -1,6 +1,6 @@
 name: 'Zarf Package Helm Chart'
 description: 'A GitHub Action to package Helm charts into Zarf packages for air-gapped deployment'
-author: 'David Asulin'
+author: 'David Abrams <9200200@gmail.com>'
 branding:
   icon: 'package'
   color: 'blue'

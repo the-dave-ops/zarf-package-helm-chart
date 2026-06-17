@@ -418,4 +418,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-**Made with ❤️ for the Zarf community**
+**Created by David Abrams <9200200@gmail.com>**
+
+Made with ❤️ for the Zarf community
